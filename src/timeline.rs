@@ -77,6 +77,9 @@ pub struct TimelineConfig {
     pub lookback: Duration,
     pub last_n: usize,
     pub gpu_window: Duration,
+    /// A 1074 only explains a crash if the boot went quiet this soon after it
+    /// (Fast Startup sessions log 1074 and keep running).
+    pub shutdown_window: Duration,
 }
 
 impl Default for TimelineConfig {
@@ -85,6 +88,7 @@ impl Default for TimelineConfig {
             lookback: Duration::minutes(15),
             last_n: 5,
             gpu_window: Duration::minutes(2),
+            shutdown_window: Duration::minutes(30),
         }
     }
 }
@@ -236,9 +240,11 @@ pub fn build(events: &[Event], report_end: DateTime<Utc>, cfg: &TimelineConfig) 
         };
 
         let prev_members: &[&Event] = prev.map_or(&[], |p| members[p].as_slice());
-        let shutdown_requested = prev_members
-            .iter()
-            .any(|e| e.kind == EventKind::Planned1074);
+        let shutdown_requested = crash_time.is_some_and(|c| {
+            prev_members.iter().any(|e| {
+                e.kind == EventKind::Planned1074 && e.time <= c && c - e.time <= cfg.shutdown_window
+            })
+        });
         let gpu_before = crash_time.is_some_and(|c| {
             prev_members.iter().any(|e| {
                 e.kind.category() == Some(Category::Gpu)
@@ -397,7 +403,7 @@ mod tests {
             ev.extend(boot("03-01 08:00:00"));
             match kind {
                 "gpu" => ev.push(tdr("03-01 09:59:00")),
-                "shutdown" => ev.push(planned("03-01 09:00:00")),
+                "shutdown" => ev.push(planned("03-01 09:50:00")),
                 _ => {}
             }
             ev.push(beat("03-01 10:00:00"));
@@ -418,6 +424,17 @@ mod tests {
         assert_eq!(b.class, CrashClass::PowerButtonHold);
         assert_eq!(b.lockup, Some(Duration::minutes(20)));
         assert_eq!(mk("plain").class, CrashClass::HardPowerLoss);
+    }
+
+    #[test]
+    fn old_1074_in_a_long_session_is_not_a_shutdown_hang() {
+        let mut ev = boot("03-01 08:00:00");
+        ev.push(planned("03-01 09:00:00"));
+        ev.push(beat("03-01 20:00:00"));
+        ev.extend(boot("03-01 21:00:00"));
+        ev.push(kp41("03-01 21:00:30", &[]));
+        let c = run(&ev, "03-01 22:00:00").crashes.remove(0);
+        assert_eq!(c.class, CrashClass::HardPowerLoss);
     }
 
     #[test]
