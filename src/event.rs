@@ -96,7 +96,8 @@ pub fn classify(provider: &str, id: u32) -> EventKind {
         ("microsoft-windows-kernel-general", 13) => EventKind::KernelShutdown,
         ("display", 4101) => EventKind::GpuTimeout,
         ("nvlddmkm", _) => EventKind::NvidiaReset,
-        ("disk", 7 | 11 | 51 | 153) => EventKind::DiskError,
+        ("disk", 7 | 11 | 15 | 51 | 52 | 153 | 157) => EventKind::DiskError,
+        ("storahci" | "stornvme" | "storport", 129 | 130 | 153) => EventKind::DiskError,
         ("service control manager", 7031 | 7034) => EventKind::ServiceCrash,
         _ if (p == "bugcheck" || p.contains("wer-systemerrorreporting")) && id == 1001 => {
             EventKind::BugCheck1001
@@ -128,6 +129,20 @@ impl Event {
             _ => return None,
         };
         u32::try_from(code).ok().filter(|c| *c != 0)
+    }
+
+    /// Device or volume named by a disk/NTFS-style event, e.g. `\Device\Harddisk1\DR1`.
+    pub fn device(&self) -> Option<String> {
+        match self.kind {
+            EventKind::DiskError => self.data.get("data0").cloned(),
+            EventKind::FsError => self
+                .data
+                .get("DriveName")
+                .or_else(|| self.data.get("data0"))
+                .cloned(),
+            _ => None,
+        }
+        .filter(|d| !d.is_empty())
     }
 
     pub fn sleep_in_progress(&self) -> bool {

@@ -276,7 +276,7 @@ fn widths(headers: &[String], rows: &[Vec<String>]) -> Vec<usize> {
     w
 }
 
-fn text_table(headers: &[String], rows: &[Vec<String>]) -> String {
+pub fn text_table(headers: &[String], rows: &[Vec<String>]) -> String {
     let w = widths(headers, rows);
     let line = |cells: &[String]| {
         cells
@@ -304,7 +304,7 @@ fn text_table(headers: &[String], rows: &[Vec<String>]) -> String {
     s
 }
 
-fn md_table(headers: &[String], rows: &[Vec<String>]) -> String {
+pub fn md_table(headers: &[String], rows: &[Vec<String>]) -> String {
     let esc = |c: &String| c.replace('|', "\\|");
     let mut s = format!(
         "| {} |\n",

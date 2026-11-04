@@ -2,8 +2,9 @@ use std::path::PathBuf;
 
 use anyhow::{bail, Context, Result};
 use chrono::{Duration, Utc};
-use clap::Parser;
+use clap::{Parser, Subcommand};
 
+use crate::disks::{build_disk_report, render_disks};
 use crate::markers::parse_markers;
 use crate::render::{render, Format};
 use crate::report::{build_report, Options};
@@ -15,56 +16,65 @@ use crate::tz::{parse_when, Tz};
 #[command(name = "crashtrace", version, about)]
 pub struct Cli {
     /// Read an exported .evtx or XML file instead of the live log (repeatable)
-    #[arg(long = "from", value_name = "FILE")]
+    #[arg(long = "from", value_name = "FILE", global = true)]
     pub from: Vec<PathBuf>,
 
     /// Also read the live Application log (more activity for crash-time estimates)
-    #[arg(long)]
+    #[arg(long, global = true)]
     pub application: bool,
 
     /// Start of the window: YYYY-MM-DD, YYYY-MM-DDTHH:MM[:SS] or RFC 3339
-    #[arg(long, conflicts_with = "days")]
+    #[arg(long, conflicts_with = "days", global = true)]
     pub since: Option<String>,
 
     /// End of the window (a bare date includes that whole day)
-    #[arg(long)]
+    #[arg(long, global = true)]
     pub until: Option<String>,
 
     /// Look back this many days from now (or from --until)
-    #[arg(long)]
+    #[arg(long, global = true)]
     pub days: Option<u32>,
 
     /// How far before a crash a WHEA/GPU/disk event counts as "preceding", in minutes
-    #[arg(long, default_value_t = 10)]
+    #[arg(long, default_value_t = 10, global = true)]
     pub window: i64,
 
     /// How far back to list notable events before each crash, in minutes
-    #[arg(long, default_value_t = 15)]
+    #[arg(long, default_value_t = 15, global = true)]
     pub lookback: i64,
 
     /// Maximum notable events listed per crash
-    #[arg(long, default_value_t = 5)]
+    #[arg(long, default_value_t = 5, global = true)]
     pub last: usize,
 
     /// TOML file of dated markers that split the timeline into eras
-    #[arg(long, value_name = "FILE")]
+    #[arg(long, value_name = "FILE", global = true)]
     pub markers: Option<PathBuf>,
 
     /// Time zone for display, hour/weekday bins and marker dates: local, utc or an offset like -08:00
-    #[arg(long, default_value = "local")]
+    #[arg(long, default_value = "local", global = true)]
     pub tz: String,
 
     /// Output JSON
-    #[arg(long, conflicts_with = "markdown")]
+    #[arg(long, conflicts_with = "markdown", global = true)]
     pub json: bool,
 
     /// Output Markdown
-    #[arg(long)]
+    #[arg(long, global = true)]
     pub markdown: bool,
 
     /// Write the report to this file instead of stdout
-    #[arg(long, value_name = "FILE")]
+    #[arg(long, value_name = "FILE", global = true)]
     pub out: Option<PathBuf>,
+
+    #[command(subcommand)]
+    pub command: Option<Command>,
+}
+
+#[derive(Subcommand, Debug, Clone, Copy)]
+pub enum Command {
+    /// Break down disk and NTFS error events by ID, device, day and burst
+    Disks,
 }
 
 pub fn execute(cli: &Cli) -> Result<String> {
@@ -97,6 +107,24 @@ pub fn execute(cli: &Cli) -> Result<String> {
         }
     }
 
+    let format = if cli.json {
+        Format::Json
+    } else if cli.markdown {
+        Format::Markdown
+    } else {
+        Format::Text
+    };
+
+    if let Some(Command::Disks) = cli.command {
+        events.retain(|e| since.is_none_or(|s| e.time >= s) && until.is_none_or(|u| e.time <= u));
+        let end = until
+            .or(live.then_some(now))
+            .or_else(|| events.iter().map(|e| e.time).max())
+            .unwrap_or(now);
+        let r = build_disk_report(&events, end, tz, Duration::minutes(cli.lookback));
+        return Ok(render_disks(&r, format));
+    }
+
     let mut opts = Options::new(tz);
     opts.since = since;
     opts.until = until;
@@ -110,13 +138,6 @@ pub fn execute(cli: &Cli) -> Result<String> {
     }
 
     let report = build_report(events, &opts);
-    let format = if cli.json {
-        Format::Json
-    } else if cli.markdown {
-        Format::Markdown
-    } else {
-        Format::Text
-    };
     Ok(render(&report, format))
 }
 
@@ -188,6 +209,25 @@ mod tests {
         let out = execute(&cli).unwrap();
         assert!(out.contains("| 1 |"));
         assert!(!out.contains("| 2 |"));
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn disks_subcommand_runs_on_a_file() {
+        let dir = std::env::temp_dir().join(format!("crashtrace-disks-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = write_fixture(&dir);
+        let cli = Cli::parse_from([
+            "crashtrace",
+            "disks",
+            "--from",
+            f.to_str().unwrap(),
+            "--tz",
+            "utc",
+        ]);
+        let out = execute(&cli).unwrap();
+        assert!(out.contains("CRASHTRACE DISKS"));
+        assert!(out.contains("0 disk/NTFS error events"));
         std::fs::remove_dir_all(&dir).ok();
     }
 

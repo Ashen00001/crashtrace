@@ -131,3 +131,15 @@ pub fn scenario() -> Vec<Event> {
     v.sort_by_key(|e| e.time);
     v
 }
+
+/// Disk-style event whose device is the first unnamed `<Data>` element.
+pub fn disk_on(at: &str, id: u32, device: &str) -> Event {
+    let ts = format!("2031-{}Z", at.replacen(' ', "T", 1));
+    let xml = format!(
+        "<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System>\
+         <Provider Name='disk'/><EventID>{id}</EventID><TimeCreated SystemTime='{ts}'/>\
+         <EventRecordID>1</EventRecordID><Channel>System</Channel><Computer>TESTBOX-01</Computer>\
+         </System><EventData><Data>{device}</Data><Binary>00</Binary></EventData></Event>"
+    );
+    parse_events(&xml).events.remove(0)
+}

@@ -4,6 +4,7 @@
 //! clears or changes anything on the machine.
 
 pub mod cli;
+pub mod disks;
 pub mod event;
 pub mod markers;
 pub mod render;

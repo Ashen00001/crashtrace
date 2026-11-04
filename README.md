@@ -37,6 +37,25 @@ crashtrace --from dump.xml --markers markers.toml --json
 
 Offline XML can come from `wevtutil qe System /f:xml /e:Events > dump.xml`.
 
+## Disk errors: `crashtrace disks`
+
+```
+crashtrace disks --days 120 --markdown
+crashtrace disks --from dump.xml --tz utc
+```
+
+Breaks disk and NTFS error events down by event ID, device (for example
+`\Device\Harddisk1\DR1`), day, and burst (events less than 10 minutes apart on
+one device), and counts how many crashes had a disk event in the lookback
+window before them. It takes the same window, `--from`, `--tz`, `--lookback`
+and output flags as the main report.
+
+Things to keep in mind:
+
+- One failure can write hundreds of events in seconds. Read the bursts table, not the raw total.
+- Device names are assigned per connection. A name in the log may not match any drive present now, especially for USB devices.
+- Mapping a device to a physical drive is up to you (for example `Get-Disk` and `Get-PhysicalDisk` in PowerShell, which are read-only). crashtrace does not query drive health.
+
 ## Markers
 
 Top-level `date = "label"` pairs. Quote the key if it has a time.
@@ -61,7 +80,7 @@ uptime hours and crashes per 100 uptime hours, and flags eras with fewer than
 | WHEA-Logger 17, 18, 19, 20, 47 | Hardware errors reported through the Windows Hardware Error Architecture (CPU, memory, PCIe). Corrected ones are common on some machines; fatal ones usually precede a reset. |
 | Display 4101 | GPU stopped responding and the driver recovered (TDR). |
 | nvlddmkm (any ID) | NVIDIA driver events, grouped with TDRs as "GPU timeout/reset". |
-| disk 7, 11, 51, 153; Ntfs 55 | Bad block, controller error, paging error, retried I/O, file system corruption. |
+| disk 7, 11, 15, 51, 52, 153, 157; storahci/stornvme 129, 130; Ntfs 55 | Bad block, controller error, not ready, paging error, retried I/O, surprise removal, device reset, file system corruption. |
 | Service Control Manager 7031, 7034 | A service terminated unexpectedly. Context only. |
 | Kernel-General 12 / 13 | OS start / OS shutdown. Used to split the log into boots. |
 | EventLog 6005 / 6006 | Event log service started / stopped. Used as boot and clean-shutdown markers. |
