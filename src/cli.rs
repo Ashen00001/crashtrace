@@ -81,6 +81,9 @@ pub fn execute(cli: &Cli) -> Result<String> {
     if cli.window <= 0 || cli.lookback <= 0 {
         bail!("--window and --lookback must be positive");
     }
+    if matches!(cli.command, Some(Command::Disks)) && cli.markers.is_some() {
+        bail!("--markers only applies to the crash report, not `disks`");
+    }
     let tz = Tz::parse(&cli.tz)?;
     let now = Utc::now();
     let until = cli
@@ -229,6 +232,21 @@ mod tests {
         assert!(out.contains("CRASHTRACE DISKS"));
         assert!(out.contains("0 disk/NTFS error events"));
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn disks_rejects_markers_instead_of_ignoring_them() {
+        let cli = Cli::parse_from([
+            "crashtrace",
+            "disks",
+            "--from",
+            "x.xml",
+            "--markers",
+            "m.toml",
+        ]);
+        let err = execute(&cli).unwrap_err().to_string();
+        assert!(err.contains("--markers"), "{err}");
+        assert!(err.contains("disks"), "{err}");
     }
 
     #[test]

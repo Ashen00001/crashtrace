@@ -31,7 +31,7 @@ crashtrace --from dump.xml --markers markers.toml --json
 | `--since`, `--until`, `--days` | Time window. Dates are `YYYY-MM-DD`, `YYYY-MM-DDTHH:MM[:SS]` or RFC 3339; a bare `--until` date includes that day |
 | `--window MIN` | Correlation window before a crash (default 10) |
 | `--lookback MIN`, `--last N` | How far back, and how many notable events, to list per crash (15, 5) |
-| `--markers FILE` | Markers TOML (below) |
+| `--markers FILE` | Markers TOML (below). Crash report only; `disks` rejects it |
 | `--tz` | `local` (default), `utc`, or an offset like `-08:00`; used for display, hour/weekday bins and marker dates |
 | `--json`, `--markdown`, `--out FILE` | Output format and destination |
 
