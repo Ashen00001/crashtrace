@@ -157,7 +157,7 @@ pub fn build_disk_report(
     let crashes_with = crashes.iter().filter(|c| c.disk_events_before > 0).count();
 
     let mut notes = vec![
-        "Device names such as \\Device\\Harddisk4\\DR24 are assigned per connection and can \
+        "Device names such as \\Device\\Harddisk7\\DR7 are assigned per connection and can \
          change between boots, so a name seen in the log may not match any drive present now. \
          Match it to a drive using the surrounding events (USB/PnP) and what was plugged in."
             .to_string(),
@@ -317,10 +317,10 @@ mod tests {
             v.push(disk_on(
                 &format!("03-01 09:58:{:02}", 10 + s),
                 51,
-                "\\Device\\Harddisk4\\DR24",
+                "\\Device\\Harddisk7\\DR7",
             ));
         }
-        v.push(disk_on("03-01 09:59:30", 7, "\\Device\\Harddisk4\\DR24"));
+        v.push(disk_on("03-01 09:59:30", 7, "\\Device\\Harddisk7\\DR7"));
         v.push(beat("03-01 09:59:40"));
         v.extend(boot("03-01 10:30:00"));
         v.push(kp41("03-01 10:30:30", &[]));
@@ -349,7 +349,7 @@ mod tests {
         assert_eq!(ev["disk 51"], 6);
         assert_eq!(ev["disk 7"], 1);
         assert_eq!(ev["disk 11"], 1);
-        assert_eq!(r.by_device[0].device, "\\Device\\Harddisk4\\DR24");
+        assert_eq!(r.by_device[0].device, "\\Device\\Harddisk7\\DR7");
         assert_eq!(r.by_device[0].count, 7);
         assert_eq!(r.by_device[0].by_id["disk 51"], 6);
         assert_eq!(r.by_device[1].device, "\\Device\\Harddisk9\\DR9");
@@ -363,7 +363,7 @@ mod tests {
         assert_eq!(r.bursts.len(), 2);
         let big = r.bursts.iter().find(|b| b.count == 7).unwrap();
         assert_eq!(big.seconds, 80);
-        assert_eq!(big.device, "\\Device\\Harddisk4\\DR24");
+        assert_eq!(big.device, "\\Device\\Harddisk7\\DR7");
     }
 
     #[test]
@@ -374,7 +374,7 @@ mod tests {
         assert_eq!(r.crashes[0].disk_events_before, 7);
         assert_eq!(
             r.crashes[0].devices,
-            vec!["\\Device\\Harddisk4\\DR24".to_string()]
+            vec!["\\Device\\Harddisk7\\DR7".to_string()]
         );
     }
 
