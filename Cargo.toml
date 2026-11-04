@@ -1,0 +1,31 @@
+[package]
+name = "crashtrace"
+version = "0.1.0"
+edition = "2021"
+description = "Turn the Windows event log into a crash timeline: per-boot grouping, classification, patterns, and before/after eras"
+license = "MIT"
+readme = "README.md"
+publish = false
+
+[lib]
+name = "crashtrace"
+path = "src/lib.rs"
+
+[[bin]]
+name = "crashtrace"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive"] }
+evtx = { version = "0.8", default-features = false }
+roxmltree = "0.20"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+toml = "0.8"
+
+[profile.release]
+lto = true
+strip = true

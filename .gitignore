@@ -1,0 +1,6 @@
+target/
+*.report.md
+*.report.json
+crash-report*
+reports/
+markers.local.toml
